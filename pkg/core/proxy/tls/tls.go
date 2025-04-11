@@ -22,6 +22,8 @@ func IsTLSHandshake(data []byte) bool {
 func HandleTLSConnection(_ context.Context, logger *zap.Logger, conn net.Conn) (net.Conn, error) {
 	//Load the CA certificate and private key
 
+	println("HandleTLSConnection")
+
 	caPrivKey, err := helpers.ParsePrivateKeyPEM(caPKey)
 	if err != nil {
 		utils.LogError(logger, err, "Failed to parse CA private key")

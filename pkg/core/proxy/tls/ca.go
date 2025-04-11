@@ -290,6 +290,10 @@ func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed
 		Hosts: []string{
 			clientHello.ServerName,
 		},
+		CA: &csr.CAConfig{
+			Expiry:   "8760h",
+			Backdate: "8760h",
+		},
 		KeyRequest: csr.NewKeyRequest(),
 	}
 
