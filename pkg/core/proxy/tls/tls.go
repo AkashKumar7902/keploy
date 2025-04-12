@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"time"
 
 	"github.com/cloudflare/cfssl/helpers"
 	"go.keploy.io/server/v2/utils"
@@ -19,10 +20,8 @@ func IsTLSHandshake(data []byte) bool {
 	return data[0] == 0x16 && data[1] == 0x03 && (data[2] == 0x00 || data[2] == 0x01 || data[2] == 0x02 || data[2] == 0x03)
 }
 
-func HandleTLSConnection(_ context.Context, logger *zap.Logger, conn net.Conn) (net.Conn, error) {
+func HandleTLSConnection(ctx context.Context, logger *zap.Logger, conn net.Conn, backdate time.Time) (net.Conn, error) {
 	//Load the CA certificate and private key
-
-	println("HandleTLSConnection")
 
 	caPrivKey, err := helpers.ParsePrivateKeyPEM(caPKey)
 	if err != nil {
@@ -38,7 +37,7 @@ func HandleTLSConnection(_ context.Context, logger *zap.Logger, conn net.Conn) (
 	// Create a TLS configuration
 	config := &tls.Config{
 		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return CertForClient(clientHello, caPrivKey, caCertParsed)
+			return CertForClient(clientHello, caPrivKey, caCertParsed, backdate)
 		},
 	}
 

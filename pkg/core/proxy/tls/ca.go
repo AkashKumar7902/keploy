@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/cloudflare/cfssl/csr"
 	cfsslLog "github.com/cloudflare/cfssl/log"
@@ -254,7 +255,7 @@ var SrcPortToDstURL = sync.Map{}
 
 var setLogLevelOnce sync.Once
 
-func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed *x509.Certificate) (*tls.Certificate, error) {
+func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed *x509.Certificate, backdate time.Time) (*tls.Certificate, error) {
 
 	// Ensure log level is set only once
 
@@ -273,7 +274,7 @@ func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed
 		// 2025/03/18 20:54:25 [INFO] encoded CSR
 		// 2025/03/18 20:54:25 [INFO] signed certificate with serial number 435398774381835435678674951099961010543769077102
 
-		cfsslLog.Level = cfsslLog.LevelError
+		cfsslLog.Level = cfsslLog.LevelDebug
 	})
 
 	// Generate a new server certificate and private key for the given hostname
@@ -289,10 +290,6 @@ func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed
 		CN: clientHello.ServerName,
 		Hosts: []string{
 			clientHello.ServerName,
-		},
-		CA: &csr.CAConfig{
-			Expiry:   "8760h",
-			Backdate: "8760h",
 		},
 		KeyRequest: csr.NewKeyRequest(),
 	}
@@ -311,9 +308,11 @@ func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed
 	}
 
 	serverCert, err := signerd.Sign(signer.SignRequest{
-		Hosts:   serverReq.Hosts,
-		Request: string(serverCsr),
-		Profile: "web",
+		Hosts:     serverReq.Hosts,
+		Request:   string(serverCsr),
+		Profile:   "web",
+		NotBefore: backdate.AddDate(-1, 0, 0),
+		NotAfter:  time.Now().AddDate(1, 0, 0),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign server certificate: %v", err)
@@ -325,5 +324,8 @@ func CertForClient(clientHello *tls.ClientHelloInfo, caPrivKey any, caCertParsed
 		return nil, fmt.Errorf("failed to load server certificate and key: %v", err)
 	}
 
+	x509Cert, _ := x509.ParseCertificate(serverTLSCert.Certificate[0])
+	println("not after: ", int(time.Until(x509Cert.NotAfter).Hours()))
+	println("not before: ", int(time.Until(x509Cert.NotBefore).Hours()))
 	return &serverTLSCert, nil
 }
